@@ -40,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
   monitor.start(() => {
     containers.refresh();
     images.refresh();
+    networks.refresh();
     storage.refresh();
   });
   const poller = new DockerPoller(containers);

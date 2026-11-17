@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { runCli, runCliResult, execArgs, snapshotArgs, cliKind, cliPath, CliError, SAFE_NAME } from '../cli';
+import { runCli, runCliResult, execArgs, snapshotArgs, cliKind, cliPath, CliError, SAFE_NAME, SLOW, SNAPSHOT, STOP_TIMEOUT_S } from '../cli';
 import { LxcInstance, parseInstances, parseImages, parseNetworks, parsePools } from '../model/lxc';
 import { parseDockerPs, groupByCompose, classifyDockerError, DockerContainer } from '../model/docker';
 import { formatUptime } from '../model/format';
@@ -24,11 +24,6 @@ export interface ToolOptions {
   /** Machines no write tool may touch (exec included). */
   protect: string[];
 }
-
-const SLOW = { timeoutMs: 120_000 };
-/** Snapshots on a `dir` pool copy the whole filesystem; allow far longer than lifecycle calls. */
-const SNAPSHOT = { timeoutMs: 600_000 };
-const STOP_TIMEOUT_S = 100;
 
 const name = (what: string) => z.string().describe(what);
 
@@ -55,6 +50,8 @@ const summarize = (c: DockerContainer) => ({
 });
 
 export function createTools(opts: ToolOptions): ToolDef[] {
+  // A snapshot can outlast the client's request timeout; a retry must not start a second copy of the same machine.
+  const snapshotting = new Set<string>();
   const guard = (i: LxcInstance) => {
     if (opts.protect.includes(i.name)) throw new Error(`${i.name} is protected (SEEDPOD_PROTECT); write tools refuse to touch it.`);
     return i;
@@ -171,14 +168,23 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     {
       name: 'create_snapshot', title: 'Snapshot a machine', write: true,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-      description: 'Create a snapshot of a machine. There is deliberately no restore or delete tool.',
+      description: 'Create a snapshot of a machine. On a dir pool this copies the whole filesystem and can take minutes; ' +
+        'if the call times out, check list_machines before retrying. A second snapshot of the same machine is refused while one runs. ' +
+        'There is deliberately no restore or delete tool.',
       input: { ...machineArgs, name: z.string().optional().describe('Snapshot name (default snap-YYYYMMDD-HHmm)') },
       run: async (a) => {
         const i = guard(await resolveMachine(a.machine, a.project));
         const snap = (a.name as string | undefined) ?? defaultSnapshotName(new Date());
         const bad = validateSnapshotName(snap, i.snapshots.map((s) => s.name));
         if (bad) throw new Error(bad);
-        await runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, snap, i.project), SNAPSHOT);
+        const key = `${i.project}/${i.name}`;
+        if (snapshotting.has(key)) throw new Error(`A snapshot of ${i.name} is already running; wait for it, then check list_machines.`);
+        snapshotting.add(key);
+        try {
+          await runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, snap, i.project), SNAPSHOT);
+        } finally {
+          snapshotting.delete(key);
+        }
         return { machine: i.name, snapshot: snap };
       },
     },

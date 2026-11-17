@@ -1,7 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createTools, ToolDef, ToolOptions } from './tools';
 
-export const VERSION = '0.1.0';
+import { version } from '../../package.json';
+
+/** From package.json, so a release bump cannot leave serverInfo behind. */
+export const VERSION: string = version;
 
 export function optionsFromEnv(env: Record<string, string | undefined>): ToolOptions {
   return {

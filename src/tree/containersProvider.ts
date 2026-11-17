@@ -7,6 +7,19 @@ import { Node, buildRoots, instanceChildren, snapshotChildren, dockerChildren, d
 
 export const UNREACHABLE = 'LXD not reachable — check seedpod.cliPath';
 
+/**
+ * contextValue suffix. Only Running/Frozen/Stopped get lifecycle menus; anything else (Error, Starting, Stopping,
+ * Freezing, Unknown, …) is `other` and keeps just the state-independent actions (log, inspect, snapshot, delete).
+ */
+export function instanceState(status: string): 'running' | 'frozen' | 'stopped' | 'other' {
+  switch (status) {
+    case 'Running': return 'running';
+    case 'Frozen': return 'frozen';
+    case 'Stopped': return 'stopped';
+    default: return 'other';
+  }
+}
+
 const green = new vscode.ThemeColor('testing.iconPassed');
 const red = new vscode.ThemeColor('testing.iconFailed');
 
@@ -17,6 +30,9 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
   private instances: LxcInstance[] = [];
   private loadError?: string;
   private stale = true;
+  /** Bumped by every refresh(); a load started under an older generation must not overwrite a newer one. */
+  private gen = 0;
+  private inflight?: { gen: number; done: Promise<void> };
   private filter = '';
   private groupByProject = true;
   private readonly docker = new Map<string, DockerContainer[] | 'none'>();
@@ -29,6 +45,7 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
   /** Re-read `lxc list` on the next render; `docker: true` (manual Refresh) also re-checks Docker in every machine. */
   refresh(opts: { docker?: boolean } = {}): void {
     this.stale = true;
+    this.gen++;
     if (opts.docker) {
       this.docker.clear();
       this.dockerErrors.clear();
@@ -77,15 +94,32 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
     if (before !== after) this.emitter.fire(undefined);
   }
 
-  private async loadInstances(): Promise<void> {
+  /** One `lxc list` per generation: concurrent renders share it, and a superseded result is dropped. */
+  private loadInstances(): Promise<void> {
+    if (this.inflight?.gen === this.gen) return this.inflight.done;
+    const gen = this.gen;
+    const done = this.doLoadInstances(gen).finally(() => {
+      if (this.inflight?.done === done) this.inflight = undefined;
+    });
+    this.inflight = { gen, done };
+    return done;
+  }
+
+  private async doLoadInstances(gen: number): Promise<void> {
+    let instances: LxcInstance[];
+    let loadError: string | undefined;
     try {
-      this.instances = parseInstances(await runCli(['list', '--all-projects', '--format', 'json']));
-      this.loadError = undefined;
+      instances = parseInstances(await runCli(['list', '--all-projects', '--format', 'json']));
     } catch (e) {
-      this.instances = [];
-      this.loadError = UNREACHABLE;
+      instances = [];
+      loadError = UNREACHABLE;
       this.log.appendLine(`lxc list failed: ${(e as Error).message}`);
     }
+    // A refresh() arrived while `lxc list` ran: this result may predate it. Keep `stale` set; the render that
+    // refresh() triggered loads the newer state.
+    if (gen !== this.gen) return;
+    this.instances = instances;
+    this.loadError = loadError;
     for (const i of this.instances) {
       const key = dockerKey(i);
       if (this.lastStatus.get(key) !== i.status) {
@@ -177,12 +211,14 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         t.id = `instance:${dockerKey(i)}`;
         t.description = instanceDescription(i, new Date());
         t.tooltip = `${i.name} (${i.type}, project ${i.project})\n${t.description}`;
-        const state = i.status === 'Running' ? 'running' : i.status === 'Frozen' ? 'frozen' : 'stopped';
+        const state = instanceState(i.status);
         t.contextValue = `seedpod.instance.${state}`;
         t.iconPath =
           state === 'running' ? new vscode.ThemeIcon('debug-start', green)
           : state === 'frozen' ? new vscode.ThemeIcon('debug-pause')
-          : new vscode.ThemeIcon('debug-stop', red);
+          : state === 'stopped' ? new vscode.ThemeIcon('debug-stop', red)
+          : i.status === 'Error' ? new vscode.ThemeIcon('error', red)
+          : new vscode.ThemeIcon('sync~spin');
         return t;
       }
       case 'compose': {

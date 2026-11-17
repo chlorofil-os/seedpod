@@ -4,7 +4,7 @@ import * as path from 'node:path';
 export type Cli = 'lxc' | 'incus';
 
 export class CliError extends Error {
-  constructor(message: string, public code: number | string | undefined, public stderr: string) {
+  constructor(message: string, public code: number | string | undefined, public stderr: string, public timedOut = false) {
     super(message);
   }
 }
@@ -46,7 +46,7 @@ export function runCli(args: string[], opts: { timeoutMs?: number } = {}): Promi
       if (err) {
         const e = err as NodeJS.ErrnoException & { code?: number | string; killed?: boolean; signal?: string | null };
         const how = e.killed ? `timed out after ${(opts.timeoutMs ?? 15000) / 1000}s` : e.signal ? `killed by ${e.signal}` : `exit code ${e.code}`;
-        reject(new CliError(stderr.trim() || `${path.basename(cliPath())} ${args.join(' ')}: ${how}`, e.code, stderr));
+        reject(new CliError(stderr.trim() || `${path.basename(cliPath())} ${args.join(' ')}: ${how}`, e.code, stderr, !!e.killed));
         return;
       }
       resolve(stdout);
@@ -66,8 +66,21 @@ export function shellCommand(login: boolean): string[] {
   return ['sh', '-c', `if command -v bash >/dev/null 2>&1; then exec bash${l}; else exec sh${l}; fi`];
 }
 
-/** `lxc stop --timeout` expired; the only stop failure for which force-stopping is the right offer. */
-export function isStopTimeout(message: string): boolean {
+/** Shared timeouts for lifecycle calls (extension and MCP server alike). */
+export const SLOW = { timeoutMs: 120_000 };
+/** Snapshots on a `dir` pool copy the whole filesystem; allow far longer than lifecycle calls. */
+export const SNAPSHOT = { timeoutMs: 600_000 };
+/** Below SLOW's client timeout, so LXD reports the timeout rather than the client being killed. */
+export const STOP_TIMEOUT_S = 100;
+
+/**
+ * `lxc stop --timeout` expired; the only stop failure for which force-stopping is the right offer.
+ * Our own client kill (`timedOut`) and transport errors (`dial unix … i/o timeout`) are not: LXD never reported a stop timeout.
+ */
+export function isStopTimeout(err: string | { message: string; timedOut?: boolean }): boolean {
+  const message = typeof err === 'string' ? err : err.message;
+  if (typeof err !== 'string' && err.timedOut) return false;
+  if (/i\/o timeout|dial (unix|tcp)|connection refused|timed out after \d+s/i.test(message)) return false;
   return /deadline exceeded|timed? ?out/i.test(message);
 }
 

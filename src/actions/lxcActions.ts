@@ -1,18 +1,11 @@
 import * as vscode from 'vscode';
-import { runCli, cliPath, cliKind, execArgs, snapshotArgs, shellCommand, isStopTimeout } from '../cli';
+import { runCli, cliPath, cliKind, execArgs, snapshotArgs, shellCommand, isStopTimeout, SLOW, SNAPSHOT, STOP_TIMEOUT_S, CliError } from '../cli';
 import { openInspect } from '../inspect';
 import { defaultSnapshotName, validateSnapshotName } from '../model/naming';
 import type { LxcInstance } from '../model/lxc';
 import type { Node } from '../tree/nodes';
 import type { ContainersProvider } from '../tree/containersProvider';
 import { confirm, withProgress } from './ui';
-
-/** Lifecycle calls can take a while (a clean shutdown waits for the guest); give them longer than reads. */
-const SLOW = { timeoutMs: 120_000 };
-/** Snapshots on a `dir` pool copy the whole filesystem; allow far longer than lifecycle calls. */
-const SNAPSHOT = { timeoutMs: 600_000 };
-/** Below SLOW's client timeout, so LXD reports the timeout rather than the client being killed. */
-const STOP_TIMEOUT_S = 100;
 
 const instOf = (n: Node | undefined): LxcInstance | undefined =>
   n && (n.kind === 'instance' || n.kind === 'snapshot' || n.kind === 'snapshots') ? n.inst : undefined;
@@ -47,7 +40,7 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
           runCli(['stop', i.name, '--timeout', String(STOP_TIMEOUT_S), ...proj(i)], SLOW));
       } catch (e) {
         const msg = (e as Error).message;
-        if (isStopTimeout(msg)) {
+        if (isStopTimeout(e as CliError)) {
           const force = await confirm(`${i.name} did not stop within ${STOP_TIMEOUT_S}s.`, 'Force stop', msg);
           if (force) await withProgress(`Force-stopping ${i.name}`, () => runCli(['stop', i.name, '--force', ...proj(i)], SLOW));
         } else {

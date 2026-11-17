@@ -88,9 +88,9 @@ export class DockerPoller implements vscode.Disposable {
     if (this.busy) return;
     this.busy = true;
     try {
-      for (const inst of this.provider.loadedMachines()) {
-        if (!this.provider.isNoDocker(inst)) await this.provider.refreshDocker(inst);
-      }
+      // In parallel: one machine with a hung dockerd must not delay every other machine's update.
+      const due = this.provider.loadedMachines().filter((inst) => !this.provider.isNoDocker(inst));
+      await Promise.allSettled(due.map((inst) => this.provider.refreshDocker(inst)));
     } finally {
       this.busy = false;
     }

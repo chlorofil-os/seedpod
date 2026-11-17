@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
-import { runCli, execArgs, shellCommand } from '../cli';
+import { runCli, execArgs, shellCommand, SLOW } from '../cli';
 import { openInspect } from '../inspect';
 import type { Node } from '../tree/nodes';
 import type { ContainersProvider } from '../tree/containersProvider';
 import { confirm, withProgress } from './ui';
 import { openShell } from './lxcActions';
 
-const SLOW = { timeoutMs: 120_000 };
 type DockerNode = Extract<Node, { kind: 'docker' }>;
 type ComposeNode = Extract<Node, { kind: 'compose' }>;
 
