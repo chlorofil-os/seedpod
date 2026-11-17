@@ -585,7 +585,7 @@
   },
   "scripts": {
     "build": "node esbuild.mjs",
-    "test": "rm -rf out && tsc -p tsconfig.test.json && node --require ./test/support/register-vscode.js --test out/test/",
+    "test": "rm -rf out && tsc -p tsconfig.test.json && node --require ./test/support/register-vscode.js --test out/test/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package": "vsce package --no-dependencies"
   },
