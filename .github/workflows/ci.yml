@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is what the dev host runs (and what the vsce/undici pins exist for); 20 is the next LTS.
+        node: ['18', '20']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        # Uses a vscode stub and a fake lxc script; never needs LXD or Docker.
+        run: npm test
+
+      - name: Build extension and MCP server
+        run: npm run build
+
+      - name: MCP server starts and lists its tools
+        run: |
+          node --input-type=module -e "
+            import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+            import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+            const c = new Client({ name: 'ci', version: '0' });
+            await c.connect(new StdioClientTransport({ command: 'node', args: ['dist/mcp.js'] }));
+            const { tools } = await c.listTools();
+            if (tools.length < 12) throw new Error('expected 12 tools, got ' + tools.length);
+            console.log('tools:', tools.map((t) => t.name).join(' '));
+            await c.close();
+          "
+
+      - name: Package .vsix
+        run: npm run package
+
+      - name: Upload build
+        if: matrix.node == '18'
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedpod-${{ github.sha }}
+          path: |
+            *.vsix
+            dist/mcp.js
+          if-no-files-found: error
+          retention-days: 14

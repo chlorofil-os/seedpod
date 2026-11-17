@@ -1,0 +1,71 @@
+[
+  {
+    "name": "lxdbr0",
+    "description": "",
+    "type": "bridge",
+    "managed": true,
+    "status": "Created",
+    "config": {
+      "ipv4.address": "10.0.3.1/24",
+      "ipv4.nat": "true",
+      "ipv6.address": "fd42:aaaa:bbbb:cccc::1/64",
+      "ipv6.nat": "true",
+      "raw.dnsmasq": "address=/alpha.lxc/10.0.3.10\naddress=/beta.lxc/10.0.3.11\n"
+    },
+    "used_by": [
+      "/1.0/profiles/tank-clone",
+      "/1.0/profiles/shop-dev",
+      "/1.0/profiles/default",
+      "/1.0/instances/alpha",
+      "/1.0/instances/beta"
+    ],
+    "locations": [
+      "none"
+    ],
+    "project": "default"
+  },
+  {
+    "name": "lo",
+    "description": "",
+    "type": "loopback",
+    "managed": false,
+    "status": "",
+    "config": {},
+    "used_by": [],
+    "locations": null,
+    "project": "default"
+  },
+  {
+    "name": "eno1",
+    "description": "",
+    "type": "physical",
+    "managed": false,
+    "status": "",
+    "config": {},
+    "used_by": [],
+    "locations": null,
+    "project": "default"
+  },
+  {
+    "name": "br-0123456789ab",
+    "description": "",
+    "type": "bridge",
+    "managed": false,
+    "status": "",
+    "config": {},
+    "used_by": [],
+    "locations": null,
+    "project": "default"
+  },
+  {
+    "name": "docker0",
+    "description": "",
+    "type": "bridge",
+    "managed": false,
+    "status": "",
+    "config": {},
+    "used_by": [],
+    "locations": null,
+    "project": "default"
+  }
+]

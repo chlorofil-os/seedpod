@@ -1,0 +1,609 @@
+{
+  "name": "seedpod",
+  "displayName": "Seedpod: LXC Explorer",
+  "description": "Browse and manage local LXD containers and the Docker containers inside them.",
+  "version": "0.1.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:seedpod.containers"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Seedpod",
+      "properties": {
+        "seedpod.cliPath": {
+          "type": "string",
+          "default": "lxc",
+          "description": "Path to the lxc (LXD) or incus binary. Incus is best effort and untested."
+        },
+        "seedpod.docker.pollInterval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0,
+          "description": "Seconds between refreshes of Docker containers inside expanded machines. 0 disables polling."
+        },
+        "seedpod.networks.showUnmanaged": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show host bridges LXD does not manage (docker0, br-*) in the Networks view."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "seedpod",
+          "title": "Seedpod",
+          "icon": "resources/lxc.svg"
+        }
+      ]
+    },
+    "views": {
+      "seedpod": [
+        {
+          "id": "seedpod.containers",
+          "name": "Containers",
+          "icon": "resources/lxc.svg"
+        },
+        {
+          "id": "seedpod.images",
+          "name": "Images",
+          "icon": "resources/lxc.svg",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "seedpod.networks",
+          "name": "Networks",
+          "icon": "resources/lxc.svg",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "seedpod.storage",
+          "name": "Storage",
+          "icon": "resources/lxc.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "seedpod.refresh",
+        "title": "Refresh",
+        "category": "Seedpod",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "seedpod.images.refresh",
+        "title": "Refresh Images",
+        "category": "Seedpod",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "seedpod.networks.refresh",
+        "title": "Refresh Networks",
+        "category": "Seedpod",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "seedpod.storage.refresh",
+        "title": "Refresh Storage",
+        "category": "Seedpod",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "seedpod.image.delete",
+        "title": "Delete Image…",
+        "category": "Seedpod",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "seedpod.network.inspect",
+        "title": "Inspect Network",
+        "category": "Seedpod",
+        "icon": "$(json)"
+      },
+      {
+        "command": "seedpod.storage.inspect",
+        "title": "Inspect Storage Pool",
+        "category": "Seedpod",
+        "icon": "$(json)"
+      },
+      {
+        "command": "seedpod.filter",
+        "title": "Filter Containers…",
+        "category": "Seedpod",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "seedpod.clearFilter",
+        "title": "Clear Filter",
+        "category": "Seedpod",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "seedpod.groupBy",
+        "title": "Toggle Group by Project",
+        "category": "Seedpod",
+        "icon": "$(group-by-ref-type)"
+      },
+      {
+        "command": "seedpod.instance.start",
+        "title": "Start",
+        "category": "Seedpod",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "seedpod.instance.stop",
+        "title": "Stop",
+        "category": "Seedpod",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "seedpod.instance.restart",
+        "title": "Restart",
+        "category": "Seedpod",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "seedpod.instance.freeze",
+        "title": "Freeze",
+        "category": "Seedpod",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "seedpod.instance.unfreeze",
+        "title": "Unfreeze",
+        "category": "Seedpod",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "seedpod.instance.shell",
+        "title": "Open Shell",
+        "category": "Seedpod",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "seedpod.instance.log",
+        "title": "Show Log",
+        "category": "Seedpod",
+        "icon": "$(output)"
+      },
+      {
+        "command": "seedpod.instance.inspect",
+        "title": "Inspect",
+        "category": "Seedpod",
+        "icon": "$(json)"
+      },
+      {
+        "command": "seedpod.instance.copyIp",
+        "title": "Copy IP Address",
+        "category": "Seedpod"
+      },
+      {
+        "command": "seedpod.instance.remoteSsh",
+        "title": "Open in Remote-SSH Window",
+        "category": "Seedpod",
+        "icon": "$(remote)"
+      },
+      {
+        "command": "seedpod.instance.snapshot",
+        "title": "Create Snapshot…",
+        "category": "Seedpod",
+        "icon": "$(history)"
+      },
+      {
+        "command": "seedpod.snapshot.restore",
+        "title": "Restore Snapshot…",
+        "category": "Seedpod",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "seedpod.snapshot.delete",
+        "title": "Delete Snapshot…",
+        "category": "Seedpod",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "seedpod.instance.delete",
+        "title": "Delete Container…",
+        "category": "Seedpod",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "seedpod.docker.start",
+        "title": "Start",
+        "category": "Seedpod",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "seedpod.docker.stop",
+        "title": "Stop",
+        "category": "Seedpod",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "seedpod.docker.restart",
+        "title": "Restart",
+        "category": "Seedpod",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "seedpod.docker.remove",
+        "title": "Remove…",
+        "category": "Seedpod",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "seedpod.docker.logs",
+        "title": "View Logs",
+        "category": "Seedpod",
+        "icon": "$(output)"
+      },
+      {
+        "command": "seedpod.docker.shell",
+        "title": "Attach Shell",
+        "category": "Seedpod",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "seedpod.docker.inspect",
+        "title": "Inspect",
+        "category": "Seedpod",
+        "icon": "$(json)"
+      },
+      {
+        "command": "seedpod.compose.start",
+        "title": "Compose Start",
+        "category": "Seedpod",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "seedpod.compose.restart",
+        "title": "Compose Restart",
+        "category": "Seedpod",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "seedpod.compose.stop",
+        "title": "Compose Stop…",
+        "category": "Seedpod",
+        "icon": "$(debug-stop)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "seedpod.image.delete",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.network.inspect",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.storage.inspect",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.start",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.stop",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.restart",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.freeze",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.unfreeze",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.shell",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.log",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.inspect",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.copyIp",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.remoteSsh",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.snapshot",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.snapshot.restore",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.snapshot.delete",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.instance.delete",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.start",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.stop",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.restart",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.remove",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.logs",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.shell",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.docker.inspect",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.compose.start",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.compose.restart",
+          "when": "false"
+        },
+        {
+          "command": "seedpod.compose.stop",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "seedpod.filter",
+          "when": "view == seedpod.containers",
+          "group": "navigation@1"
+        },
+        {
+          "command": "seedpod.clearFilter",
+          "when": "view == seedpod.containers && seedpod.filterActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "seedpod.groupBy",
+          "when": "view == seedpod.containers",
+          "group": "navigation@3"
+        },
+        {
+          "command": "seedpod.refresh",
+          "when": "view == seedpod.containers",
+          "group": "navigation@4"
+        },
+        {
+          "command": "seedpod.images.refresh",
+          "when": "view == seedpod.images",
+          "group": "navigation"
+        },
+        {
+          "command": "seedpod.networks.refresh",
+          "when": "view == seedpod.networks",
+          "group": "navigation"
+        },
+        {
+          "command": "seedpod.storage.refresh",
+          "when": "view == seedpod.storage",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "seedpod.image.delete",
+          "when": "view == seedpod.images && viewItem == seedpod.image",
+          "group": "9_delete"
+        },
+        {
+          "command": "seedpod.network.inspect",
+          "when": "view == seedpod.networks && viewItem == seedpod.network",
+          "group": "1_inspect"
+        },
+        {
+          "command": "seedpod.storage.inspect",
+          "when": "view == seedpod.storage && viewItem == seedpod.pool",
+          "group": "1_inspect"
+        },
+        {
+          "command": "seedpod.instance.start",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.stopped$/",
+          "group": "1_life@1"
+        },
+        {
+          "command": "seedpod.instance.start",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.stopped$/",
+          "group": "inline"
+        },
+        {
+          "command": "seedpod.instance.stop",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "1_life@2"
+        },
+        {
+          "command": "seedpod.instance.restart",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "1_life@3"
+        },
+        {
+          "command": "seedpod.instance.freeze",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "1_life@4"
+        },
+        {
+          "command": "seedpod.instance.unfreeze",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.frozen$/",
+          "group": "1_life@4"
+        },
+        {
+          "command": "seedpod.instance.shell",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "2_open@1"
+        },
+        {
+          "command": "seedpod.instance.shell",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "inline"
+        },
+        {
+          "command": "seedpod.instance.remoteSsh",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/ && seedpod.hasRemoteSsh",
+          "group": "2_open@2"
+        },
+        {
+          "command": "seedpod.instance.copyIp",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\.running$/",
+          "group": "2_open@3"
+        },
+        {
+          "command": "seedpod.instance.log",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\./",
+          "group": "3_inspect@1"
+        },
+        {
+          "command": "seedpod.instance.inspect",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\./",
+          "group": "3_inspect@2"
+        },
+        {
+          "command": "seedpod.instance.snapshot",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\./",
+          "group": "4_snap@1"
+        },
+        {
+          "command": "seedpod.snapshot.restore",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.snapshot$/",
+          "group": "4_snap@1"
+        },
+        {
+          "command": "seedpod.snapshot.delete",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.snapshot$/",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "seedpod.instance.delete",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.instance\\./",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "seedpod.docker.start",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\.stopped$/",
+          "group": "1_life@1"
+        },
+        {
+          "command": "seedpod.docker.stop",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\.running$/",
+          "group": "1_life@2"
+        },
+        {
+          "command": "seedpod.docker.restart",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\.running$/",
+          "group": "1_life@3"
+        },
+        {
+          "command": "seedpod.docker.logs",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\./",
+          "group": "2_open@1"
+        },
+        {
+          "command": "seedpod.docker.shell",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\.running$/",
+          "group": "2_open@2"
+        },
+        {
+          "command": "seedpod.docker.shell",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\.running$/",
+          "group": "inline"
+        },
+        {
+          "command": "seedpod.docker.inspect",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\./",
+          "group": "3_inspect@1"
+        },
+        {
+          "command": "seedpod.docker.remove",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.docker\\./",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "seedpod.compose.start",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.compose$/",
+          "group": "1_life@1"
+        },
+        {
+          "command": "seedpod.compose.restart",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.compose$/",
+          "group": "1_life@2"
+        },
+        {
+          "command": "seedpod.compose.stop",
+          "when": "view == seedpod.containers && viewItem =~ /^seedpod\\.compose$/",
+          "group": "1_life@3"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "test": "rm -rf out && tsc -p tsconfig.test.json && node --require ./test/support/register-vscode.js --test out/test/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3",
+    "zod": "^3.25.76"
+  },
+  "overrides": {
+    "undici": "6.21.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chlorofil-os/seedpod.git"
+  },
+  "author": "chlorofil-os"
+}

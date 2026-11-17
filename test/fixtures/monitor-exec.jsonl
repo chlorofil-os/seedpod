@@ -1,0 +1,4 @@
+{"location":"none","metadata":{"action":"instance-exec","context":{"command":["docker","ps","-q"]},"name":"beta","project":"default","source":"/1.0/instances/beta"},"project":"default","timestamp":"2026-11-17T13:00:16.086551851+05:30","type":"lifecycle"}
+
+{"location":"none","metadata":{"action":"instance-log-retrieved","requestor":{"address":"@","protocol":"unix","username":"dev"},"source":"/1.0/instances/beta/backups/lxc.log"},"project":"default","timestamp":"2026-11-17T13:00:16.27896799+05:30","type":"lifecycle"}
+
