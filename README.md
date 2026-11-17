@@ -1,6 +1,34 @@
-# Seedpod: LXC Explorer
+# Seedpod
 
-A VS Code sidebar for local LXD containers, modelled on Microsoft's Container Tools view.
+**Your LXC machines, and the Docker running inside them, in one tree.**
+
+Seedpod is a VS Code sidebar and an MCP server for people who run their dev environments as LXD system
+containers: a machine per branch, per client, per experiment, each one with its own Docker Compose stack inside.
+
+## Why Seedpod
+
+LXD system containers are a great way to run many full dev machines on one host. They boot in seconds,
+clone in seconds on btrfs or ZFS, and run systemd and Docker like a VM, at a fraction of the cost. But the tooling stops
+at the machine boundary:
+
+- **Container Tools only sees the host's Docker.** The compose stacks inside your LXD machines are invisible
+  to it, so checking on them means `lxc exec <machine> -- docker ps`, again and again, one machine at a time.
+- **`lxc` and `docker` are two separate worlds.** Is `web` down because the container stopped, or because
+  the machine around it did? You end up asking both, by hand.
+- **Agents get a shell or nothing.** Giving an AI assistant raw `lxc` access means it can delete anything.
+  Giving it none means it can't help.
+
+Seedpod puts both layers in one place:
+
+- **One tree.** Machine → compose project → container, with live status, IPs and uptime, refreshed as LXD
+  reports changes.
+- **One right-click.** Start, stop, open a shell, read logs or snapshot at whichever level is broken, with
+  a confirmation that names the target before anything destructive.
+- **The same model for AI clients.** The MCP server gives assistants structured tools instead of a shell.
+  Machines you list as protected can't be changed, there's a read-only mode, and there are no delete or
+  restore tools at all.
+
+## The extension
 
 - **Containers**: LXD instances grouped by project, with status, OS, IP and uptime. Expanding a running
   machine lists the **Docker containers inside it**, grouped by compose project, plus its snapshots.

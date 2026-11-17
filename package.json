@@ -1,7 +1,7 @@
 {
   "name": "seedpod",
   "displayName": "Seedpod: LXC Explorer",
-  "description": "Browse and manage local LXD containers and the Docker containers inside them.",
+  "description": "Your LXC machines, and the Docker running inside them, in one tree. LXD + nested Docker explorer for VS Code, with an MCP server for AI clients.",
   "version": "0.1.2",
   "publisher": "local",
   "license": "MIT",
@@ -605,5 +605,14 @@
     "type": "git",
     "url": "https://github.com/chlorofil-os/seedpod.git"
   },
-  "author": "chlorofil-os"
+  "author": "chlorofil-os",
+  "keywords": [
+    "lxc",
+    "lxd",
+    "incus",
+    "docker",
+    "docker-compose",
+    "containers",
+    "mcp"
+  ]
 }
