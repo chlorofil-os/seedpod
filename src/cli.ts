@@ -42,7 +42,7 @@ export function execArgs(instance: string, project: string, cmd: string[]): stri
 
 export function runCli(args: string[], opts: { timeoutMs?: number } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cliPath(), args, { timeout: opts.timeoutMs ?? 15000, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+    const child = execFile(cliPath(), args, { timeout: opts.timeoutMs ?? 15000, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         const e = err as NodeJS.ErrnoException & { code?: number | string; killed?: boolean; signal?: string | null };
         const how = e.killed ? `timed out after ${(opts.timeoutMs ?? 15000) / 1000}s` : e.signal ? `killed by ${e.signal}` : `exit code ${e.code}`;
@@ -51,6 +51,8 @@ export function runCli(args: string[], opts: { timeoutMs?: number } = {}): Promi
       }
       resolve(stdout);
     });
+    // lxc reads YAML from stdin when it is not a TTY (e.g. `lxc snapshot`); an open pipe hangs it.
+    child.stdin?.end();
   });
 }
 
@@ -86,7 +88,7 @@ export function isReadOnlyCall(args: string[]): boolean {
 /** Like runCli, but a non-zero exit resolves with its code instead of rejecting (for running arbitrary commands). */
 export function runCliResult(args: string[], opts: { timeoutMs?: number } = {}): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }> {
   return new Promise((resolve, reject) => {
-    execFile(cliPath(), args, { timeout: opts.timeoutMs ?? 60000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+    const child = execFile(cliPath(), args, { timeout: opts.timeoutMs ?? 60000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       const e = err as (NodeJS.ErrnoException & { code?: number | string; killed?: boolean; signal?: string }) | null;
       if (e && typeof e.code !== 'number' && !e.killed) {
         reject(new CliError(e.message, e.code, stderr));
@@ -94,6 +96,8 @@ export function runCliResult(args: string[], opts: { timeoutMs?: number } = {}):
       }
       resolve({ exitCode: e ? (typeof e.code === 'number' ? e.code : -1) : 0, stdout, stderr, timedOut: !!e?.killed });
     });
+    // lxc reads YAML from stdin when it is not a TTY (e.g. `lxc snapshot`); an open pipe hangs it.
+    child.stdin?.end();
   });
 }
 

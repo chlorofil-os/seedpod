@@ -19,5 +19,6 @@ case "$1" in
     n=$(($(cat "$FAKE_DIR/monitor.count" 2>/dev/null || echo 0) + 1)); echo $n > "$FAKE_DIR/monitor.count"
     if [ -f "$FAKE_DIR/monitor.$n" ]; then . "$FAKE_DIR/monitor.$n"; else exec sleep 30; fi ;;
   fail-silent) exit 5 ;;
+  read-stdin) cat >/dev/null; echo done ;;   # like `lxc snapshot`: blocks while stdin is an open pipe
   *) exit 0 ;;
 esac

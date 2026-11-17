@@ -26,6 +26,8 @@ export interface ToolOptions {
 }
 
 const SLOW = { timeoutMs: 120_000 };
+/** Snapshots on a `dir` pool copy the whole filesystem; allow far longer than lifecycle calls. */
+const SNAPSHOT = { timeoutMs: 600_000 };
 const STOP_TIMEOUT_S = 100;
 
 const name = (what: string) => z.string().describe(what);
@@ -176,7 +178,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
         const snap = (a.name as string | undefined) ?? defaultSnapshotName(new Date());
         const bad = validateSnapshotName(snap, i.snapshots.map((s) => s.name));
         if (bad) throw new Error(bad);
-        await runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, snap, i.project), SLOW);
+        await runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, snap, i.project), SNAPSHOT);
         return { machine: i.name, snapshot: snap };
       },
     },

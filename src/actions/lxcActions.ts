@@ -9,6 +9,8 @@ import { confirm, withProgress } from './ui';
 
 /** Lifecycle calls can take a while (a clean shutdown waits for the guest); give them longer than reads. */
 const SLOW = { timeoutMs: 120_000 };
+/** Snapshots on a `dir` pool copy the whole filesystem; allow far longer than lifecycle calls. */
+const SNAPSHOT = { timeoutMs: 600_000 };
 /** Below SLOW's client timeout, so LXD reports the timeout rather than the client being killed. */
 const STOP_TIMEOUT_S = 100;
 
@@ -93,7 +95,7 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
         validateInput: (s) => validateSnapshotName(s, existing),
       });
       if (!name) return;
-      await withProgress(`Snapshotting ${i.name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, name, i.project), SLOW));
+      await withProgress(`Snapshotting ${i.name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'create', i.name, name, i.project), SNAPSHOT));
       provider.refresh();
     }),
 
@@ -101,7 +103,7 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
       if (n?.kind !== 'snapshot') return;
       const { inst: i, name } = n;
       if (!(await confirm(`Restore ${i.name} to snapshot "${name}"?`, 'Restore', 'The container\'s current state is lost.'))) return;
-      await withProgress(`Restoring ${i.name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'restore', i.name, name, i.project), SLOW));
+      await withProgress(`Restoring ${i.name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'restore', i.name, name, i.project), SNAPSHOT));
       provider.refresh();
     }),
 
@@ -109,7 +111,7 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
       if (n?.kind !== 'snapshot') return;
       const { inst: i, name } = n;
       if (!(await confirm(`Delete snapshot "${name}" of ${i.name}?`, 'Delete'))) return;
-      await withProgress(`Deleting snapshot ${name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'delete', i.name, name, i.project), SLOW));
+      await withProgress(`Deleting snapshot ${name}`, () => runCli(snapshotArgs(cliKind(cliPath()), 'delete', i.name, name, i.project), SNAPSHOT));
       provider.refresh();
     }),
 

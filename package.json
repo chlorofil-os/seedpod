@@ -2,7 +2,7 @@
   "name": "seedpod",
   "displayName": "Seedpod: LXC Explorer",
   "description": "Browse and manage local LXD containers and the Docker containers inside them.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "local",
   "license": "MIT",
   "engines": {
