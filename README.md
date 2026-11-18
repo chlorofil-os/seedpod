@@ -49,12 +49,25 @@ Every destructive action asks first, in a modal that names the target.
 | `seedpod.cliPath` | `lxc` | Path to the `lxc` binary. Setting it to `incus` is best effort and **untested**: snapshot verbs are mapped, other output is assumed compatible with LXD 5.21. |
 | `seedpod.docker.pollInterval` | `10` | Seconds between Docker refreshes for expanded machines. `0` turns polling off. |
 | `seedpod.networks.showUnmanaged` | `false` | Also list host bridges LXD does not manage (docker0, br-*). |
+| `seedpod.remoteSsh.user` | `ubuntu` | User "Open in Remote-SSH Window" connects as. |
+| `seedpod.remoteSsh.folder` | `""` | Folder to open, e.g. `~/workspace`; `~` resolves inside the machine. Empty opens an empty window. |
+| `seedpod.remoteSsh.machineSettings` | `{}` | VS Code settings written into the machine's `~/.vscode-server/data/Machine/settings.json` before connecting. Other keys there are kept; a file with comments is left alone. |
+
+For example, to open `~/workspace` and see git worktrees that live one folder deeper than the repos:
+
+```json
+"seedpod.remoteSsh.folder": "~/workspace",
+"seedpod.remoteSsh.machineSettings": {
+  "git.repositoryScanMaxDepth": 2,
+  "scm.alwaysShowRepositories": true
+}
+```
 
 ## Notes
 
 - Only the local daemon is supported. Remote LXD servers are not.
 - Docker is reached through `lxc exec <machine> -- docker …`, so the host needs no Docker socket access.
-- "Open in Remote-SSH" connects as `ubuntu@<ip>`. Keys come from your SSH config.
+- "Open in Remote-SSH" connects as `ubuntu@<ip>` (see `seedpod.remoteSsh.user`). Keys come from your SSH config.
 
 ## Build
 
@@ -63,7 +76,7 @@ npm install
 npm test            # parser and tree tests (node --test)
 npm run build       # esbuild → dist/extension.js
 npm run package     # → seedpod-<version>.vsix
-code --install-extension seedpod-0.1.0.vsix
+code --install-extension seedpod-<version>.vsix
 ```
 
 ## MCP server

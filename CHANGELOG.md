@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- "Open in Remote-SSH Window" can set up VS Code on the machine first. `seedpod.remoteSsh.machineSettings` is merged into the
+  machine's `~/.vscode-server/data/Machine/settings.json` (other keys kept, a file with comments left alone), and
+  `seedpod.remoteSsh.folder` opens a folder such as `~/workspace` instead of an empty window.
+- `seedpod.remoteSsh.user` sets the SSH user, which was fixed to `ubuntu`.
+
 ## 0.1.3
 
 - Fix: the Containers view could show an old state. When two refreshes overlapped, a slower, older `lxc list` overwrote the newer one.
