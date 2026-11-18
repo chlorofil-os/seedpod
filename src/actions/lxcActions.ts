@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { runCli, cliPath, cliKind, execArgs, snapshotArgs, shellCommand, isStopTimeout, SLOW, SNAPSHOT, STOP_TIMEOUT_S, CliError } from '../cli';
+import { runCli, cliPath, cliKind, execArgs, snapshotArgs, shellCommand, isStopTimeout, SLOW, SNAPSHOT, STOP_TIMEOUT_S, CliError, SAFE_NAME } from '../cli';
+import { planMachineSettings, resolveRemoteFolder, splitHome, READ_SETUP, WRITE_SETUP } from '../model/remote';
 import { openInspect } from '../inspect';
 import { defaultSnapshotName, validateSnapshotName } from '../model/naming';
 import type { LxcInstance } from '../model/lxc';
@@ -73,9 +74,40 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
     }),
 
     vscode.commands.registerCommand('seedpod.instance.remoteSsh', async (n: Node) => {
-      const ip = instOf(n)?.ipv4[0];
-      if (!ip) return void vscode.window.showInformationMessage('This container has no IPv4 address.');
-      await vscode.commands.executeCommand('vscode.newWindow', { remoteAuthority: `ssh-remote+ubuntu@${ip}`, reuseWindow: false });
+      const i = instOf(n);
+      const ip = i?.ipv4[0];
+      if (!i || !ip) return void vscode.window.showInformationMessage('This container has no IPv4 address.');
+      const c = vscode.workspace.getConfiguration('seedpod.remoteSsh');
+      const user = c.get<string>('user') || 'ubuntu';
+      if (!SAFE_NAME.test(user)) return void vscode.window.showErrorMessage(`seedpod.remoteSsh.user is not a valid user name: ${user}`);
+      const folder = c.get<string>('folder') ?? '';
+      const wanted = c.get<Record<string, unknown>>('machineSettings') ?? {};
+      const authority = `ssh-remote+${user}@${ip}`;
+
+      let target: string | undefined;
+      if (folder.trim() || Object.keys(wanted).length) {
+        try {
+          await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: `Setting up VS Code on ${i.name}` }, async () => {
+            const { home, settings } = splitHome(await runCli(execArgs(i.name, i.project, ['sh', '-c', READ_SETUP, 'sh', user])));
+            target = resolveRemoteFolder(folder, home);
+            if (!Object.keys(wanted).length) return;
+            const plan = planMachineSettings(settings, wanted);
+            if (plan.kind === 'invalid') {
+              void vscode.window.showWarningMessage(`Left ${home}/.vscode-server/data/Machine/settings.json on ${i.name} unchanged: it is not plain JSON (${plan.reason}).`);
+            } else if (plan.kind === 'write') {
+              await runCli(execArgs(i.name, i.project, ['sh', '-c', WRITE_SETUP, 'sh', user, plan.text]));
+            }
+          });
+        } catch (e) {
+          void vscode.window.showWarningMessage(`Could not set up VS Code on ${i.name}: ${(e as Error).message}. Opening it anyway.`);
+          target = folder.trim().startsWith('/') ? folder.trim() : undefined;
+        }
+      }
+      if (target) {
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.from({ scheme: 'vscode-remote', authority, path: target }), { forceNewWindow: true });
+      } else {
+        await vscode.commands.executeCommand('vscode.newWindow', { remoteAuthority: authority, reuseWindow: false });
+      }
     }),
 
     vscode.commands.registerCommand('seedpod.instance.snapshot', async (n: Node) => {

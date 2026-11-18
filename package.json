@@ -2,7 +2,7 @@
   "name": "seedpod",
   "displayName": "Seedpod: LXC Explorer",
   "description": "Your LXC machines, and the Docker running inside them, in one tree. LXD + nested Docker explorer for VS Code, with an MCP server for AI clients.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -37,6 +37,21 @@
           "type": "boolean",
           "default": false,
           "description": "Show host bridges LXD does not manage (docker0, br-*) in the Networks view."
+        },
+        "seedpod.remoteSsh.user": {
+          "type": "string",
+          "default": "ubuntu",
+          "description": "User that \"Open in Remote-SSH Window\" connects as."
+        },
+        "seedpod.remoteSsh.folder": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Folder to open in the Remote-SSH window, e.g. `~/workspace`. `~` and relative paths resolve against the user's home inside the machine. Empty opens an empty window."
+        },
+        "seedpod.remoteSsh.machineSettings": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "VS Code settings to write into the machine's `~/.vscode-server/data/Machine/settings.json` before \"Open in Remote-SSH Window\" connects, e.g. `{ \"git.repositoryScanMaxDepth\": 2 }` so git worktrees one level deeper are found. Other keys in that file are kept; a file with comments is left untouched."
         }
       }
     },
