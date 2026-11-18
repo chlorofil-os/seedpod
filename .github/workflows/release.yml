@@ -32,6 +32,16 @@ jobs:
       - run: npm run build
       - run: npm run package
 
+      - name: Release notes from this version's CHANGELOG section
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 == "## " v {on=1; next} on && /^## / {exit} on' CHANGELOG.md \
+            | sed -e '/./,$!d' > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no '## $v' section"; exit 1
+          fi
+          cat release-notes.md
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,5 +49,5 @@ jobs:
           cp dist/mcp.js "seedpod-mcp-${GITHUB_REF_NAME}.js"
           gh release create "$GITHUB_REF_NAME" \
             --title "Seedpod $GITHUB_REF_NAME" \
-            --notes-file CHANGELOG.md \
+            --notes-file release-notes.md \
             ./*.vsix "seedpod-mcp-${GITHUB_REF_NAME}.js"
