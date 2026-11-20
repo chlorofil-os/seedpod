@@ -7,7 +7,7 @@ class EventEmitter { constructor() { this.l = []; this.event = (f) => { this.l.p
 class TreeItem { constructor(label, c) { this.label = label; this.collapsibleState = c; } }
 class ThemeIcon { constructor(id, color) { this.id = id; this.color = color; } }
 class ThemeColor { constructor(id) { this.id = id; } }
-class MarkdownString { constructor(value = '') { this.value = value; } }
+class MarkdownString { constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; } }
 const rec = (name) => async (...a) => { calls.push([name, ...a]); return globalThis.__vscode.answers[name]; };
 module.exports = {
   EventEmitter, TreeItem, ThemeIcon, ThemeColor, MarkdownString,

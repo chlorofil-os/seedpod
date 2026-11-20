@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { runCli, execArgs, CliError } from '../cli';
 import { LxcInstance, parseInstances } from '../model/lxc';
 import { DockerContainer, parseDockerPs, classifyDockerError, dockerHoverMarkdown } from '../model/docker';
-import { instanceDescription, instanceHoverMarkdown, mdEscape } from '../model/format';
+import { instanceDescription, instanceHoverMarkdown, mdEscape, commandLink } from '../model/format';
 import { Node, GroupBy, buildRoots, instanceChildren, snapshotChildren, dockerChildren, dockerKey } from './nodes';
 
 export const UNREACHABLE = 'LXD not reachable — check seedpod.cliPath';
@@ -18,6 +18,56 @@ export function instanceState(status: string): 'running' | 'frozen' | 'stopped' 
     case 'Stopped': return 'stopped';
     default: return 'other';
   }
+}
+
+const HOVER_COMMANDS = [
+  'seedpod.instance.shell', 'seedpod.instance.log', 'seedpod.instance.inspect', 'seedpod.instance.copyIp', 'seedpod.instance.remoteSsh',
+  'seedpod.docker.logs', 'seedpod.docker.shell', 'seedpod.docker.inspect',
+  'seedpod.compose.start', 'seedpod.compose.restart', 'seedpod.compose.stop',
+];
+
+/**
+ * A hover with a row of command links under a rule. VS Code keeps a tree hover open for the mouse only when its
+ * Markdown holds a link, so every Seedpod hover carries at least one.
+ */
+function hover(md: string, links: string[]): vscode.MarkdownString {
+  const m = new vscode.MarkdownString(links.length ? `${md}\n\n---\n\n${links.join(' &nbsp; ')}` : md, true);
+  m.isTrusted = { enabledCommands: HOVER_COMMANDS };
+  return m;
+}
+
+const lite = (i: LxcInstance) => ({ name: i.name, project: i.project, status: i.status, ipv4: i.ipv4 });
+
+function instanceLinks(i: LxcInstance): string[] {
+  const n = { kind: 'instance', inst: lite(i) };
+  const running = i.status === 'Running';
+  return [
+    running && commandLink('$(terminal) Shell', 'seedpod.instance.shell', n),
+    running && i.ipv4[0] && commandLink('$(remote) Remote-SSH', 'seedpod.instance.remoteSsh', n),
+    commandLink('$(output) Log', 'seedpod.instance.log', n),
+    commandLink('$(json) Inspect', 'seedpod.instance.inspect', n),
+    i.ipv4[0] && commandLink('$(copy) Copy IP', 'seedpod.instance.copyIp', n),
+  ].filter((l): l is string => !!l);
+}
+
+function dockerLinks(inst: LxcInstance, c: DockerContainer): string[] {
+  const n = { kind: 'docker', inst: lite(inst), c: { id: c.id, name: c.name } };
+  return [
+    commandLink('$(output) Logs', 'seedpod.docker.logs', n),
+    c.state === 'running' && commandLink('$(terminal) Shell', 'seedpod.docker.shell', n),
+    commandLink('$(json) Inspect', 'seedpod.docker.inspect', n),
+  ].filter((l): l is string => !!l);
+}
+
+function composeLinks(inst: LxcInstance, project: string, cs: DockerContainer[]): string[] {
+  const n = { kind: 'compose', inst: lite(inst), project };
+  const up = cs.some((c) => c.state === 'running');
+  const down = cs.some((c) => c.state !== 'running');
+  return [
+    down && commandLink('$(debug-start) Start', 'seedpod.compose.start', n),
+    up && commandLink('$(debug-restart) Restart', 'seedpod.compose.restart', n),
+    up && commandLink('$(debug-stop) Stop', 'seedpod.compose.stop', n),
+  ].filter((l): l is string => !!l);
 }
 
 const green = new vscode.ThemeColor('testing.iconPassed');
@@ -203,12 +253,10 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
     try {
       const out = await runCli(execArgs(node.inst.name, node.inst.project, ['docker', 'inspect', c.id]));
       if (token.isCancellationRequested) return item;
-      const m = new vscode.MarkdownString(dockerHoverMarkdown(out, node.inst.ipv4[0]));
-      m.supportHtml = false;
-      item.tooltip = m;
+      item.tooltip = hover(dockerHoverMarkdown(out, node.inst.ipv4[0]), dockerLinks(node.inst, c));
     } catch (e) {
       this.log.appendLine(`docker inspect ${c.id} in ${dockerKey(node.inst)} failed: ${(e as Error).message}`);
-      item.tooltip = `${c.name}\n${c.image}\n${c.status}`;
+      item.tooltip = hover(`### ${mdEscape(c.name)}\n\n${mdEscape(c.image)} · ${mdEscape(c.status)}`, dockerLinks(node.inst, c));
     }
     return item;
   }
@@ -236,7 +284,7 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         const t = new vscode.TreeItem(i.name, C.Collapsed);
         t.id = `instance:${dockerKey(i)}`;
         t.description = instanceDescription(i, new Date());
-        t.tooltip = new vscode.MarkdownString(instanceHoverMarkdown(i, new Date()));
+        t.tooltip = hover(instanceHoverMarkdown(i, new Date()), instanceLinks(i));
         const state = instanceState(i.status);
         t.contextValue = `seedpod.instance.${state}`;
         t.iconPath =
@@ -252,9 +300,10 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         t.id = `compose:${dockerKey(node.inst)}:${node.project}`;
         t.iconPath = new vscode.ThemeIcon('type-hierarchy');
         t.contextValue = 'seedpod.compose';
-        t.tooltip = new vscode.MarkdownString(
+        t.tooltip = hover(
           [`### ${mdEscape(node.project)}`, '', `Compose project · ${node.containers.length} containers`, '',
-            ...node.containers.map((c) => `- ${c.state === 'running' ? '▶' : '■'} ${mdEscape(c.composeService ?? c.name)} · ${mdEscape(c.status)}`)].join('\n'),
+            ...node.containers.map((c) => `- ${c.state === 'running' ? '$(debug-start)' : '$(debug-stop)'} ${mdEscape(c.composeService ?? c.name)} · ${mdEscape(c.status)}`)].join('\n'),
+          composeLinks(node.inst, node.project, node.containers),
         );
         return t;
       }

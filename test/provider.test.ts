@@ -166,5 +166,14 @@ test('hovering a docker container resolves its tooltip from docker inspect; a fa
   const again = p.getTreeItem(node);
   put('exec.out', 'boom'); put('exec.code', '1');
   await p.resolveTreeItem(again, node, token);
-  assert.equal(again.tooltip, `${compose.containers[0].name}\n${compose.containers[0].image}\n${compose.containers[0].status}`);
+  assert.match((again.tooltip as any).value, new RegExp(`^### ${compose.containers[0].name.replace(/-/g, '\\\\-')}`));
+
+  for (const tip of [item.tooltip, again.tooltip, p.getTreeItem(t).tooltip, p.getTreeItem(compose).tooltip] as any[]) {
+    assert.match(tip.value, /\]\(command:seedpod\.[a-z.]+\?/, 'every hover carries a link, so VS Code keeps it open');
+    const ids = [...tip.value.matchAll(/\(command:([a-zA-Z.]+)\?/g)].map((m: RegExpMatchArray) => m[1]);
+    for (const id of ids) assert.ok(tip.isTrusted.enabledCommands.includes(id), `${id} is trusted`);
+  }
+  const arg = /command:seedpod\.docker\.logs\?([^)]+)\)/.exec((item.tooltip as any).value)![1];
+  const [n] = JSON.parse(decodeURIComponent(arg));
+  assert.deepEqual([n.kind, n.inst.name, n.inst.project, n.c.id], ['docker', 'beta', t.inst.project, compose.containers[0].id]);
 });

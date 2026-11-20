@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- Fix: hovers closed as soon as the mouse left the tree row, so their links could not be clicked. Every hover now ends
+  with a row of actions, which also keeps it open: Shell, Remote-SSH, Log, Inspect and Copy IP on a machine; Logs, Shell
+  and Inspect on a container; Start, Restart and Stop on a compose group. Hover links may run only those commands.
+
 ## 0.1.5
 
 - Hovers like the Docker extension's. A Docker container shows its name and short ID, image, ports, volumes and

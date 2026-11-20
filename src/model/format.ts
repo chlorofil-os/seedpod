@@ -79,3 +79,8 @@ export function instanceHoverMarkdown(i: LxcInstance, now: Date): string {
   }
   return out.join('\n');
 }
+
+/** `[label](command:<id>?<args>)`: a hover link that runs a Seedpod command with `node` as its argument. */
+export function commandLink(label: string, command: string, node: unknown): string {
+  return `[${label}](command:${command}?${encodeURIComponent(JSON.stringify([node]))})`;
+}
