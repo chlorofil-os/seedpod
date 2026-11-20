@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { runCli, execArgs, CliError } from '../cli';
 import { LxcInstance, parseInstances } from '../model/lxc';
-import { DockerContainer, parseDockerPs, classifyDockerError } from '../model/docker';
-import { instanceDescription } from '../model/format';
-import { Node, buildRoots, instanceChildren, snapshotChildren, dockerChildren, dockerKey } from './nodes';
+import { DockerContainer, parseDockerPs, classifyDockerError, dockerHoverMarkdown } from '../model/docker';
+import { instanceDescription, instanceHoverMarkdown, mdEscape } from '../model/format';
+import { Node, GroupBy, buildRoots, instanceChildren, snapshotChildren, dockerChildren, dockerKey } from './nodes';
 
 export const UNREACHABLE = 'LXD not reachable — check seedpod.cliPath';
 
@@ -34,7 +34,7 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
   private gen = 0;
   private inflight?: { gen: number; done: Promise<void> };
   private filter = '';
-  private groupByProject = true;
+  private groupBy?: GroupBy;
   private readonly docker = new Map<string, DockerContainer[] | 'none'>();
   private readonly dockerErrors = new Map<string, string>();
   private readonly lastStatus = new Map<string, string>();
@@ -63,9 +63,17 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
     return this.filter;
   }
 
-  toggleGroupBy(): void {
-    this.groupByProject = !this.groupByProject;
+  getGroupBy(): GroupBy {
+    if (this.groupBy) return this.groupBy;
+    const v = vscode.workspace.getConfiguration('seedpod').get<string>('groupBy');
+    return v === 'project' || v === 'none' ? v : 'stack';
+  }
+
+  toggleGroupBy(): GroupBy {
+    const order: GroupBy[] = ['stack', 'project', 'none'];
+    this.groupBy = order[(order.indexOf(this.getGroupBy()) + 1) % order.length];
     this.emitter.fire(undefined);
+    return this.groupBy;
   }
 
   markExpanded(inst: LxcInstance): void {
@@ -165,7 +173,7 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
     if (!node) {
       if (this.stale) await this.loadInstances();
       if (this.loadError) return [{ kind: 'error', message: this.loadError }];
-      return buildRoots(this.instances, { groupByProject: this.groupByProject, filter: this.filter, docker: this.docker });
+      return buildRoots(this.instances, { groupBy: this.getGroupBy(), filter: this.filter, docker: this.docker });
     }
     switch (node.kind) {
       case 'project':
@@ -189,6 +197,22 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
     }
   }
 
+  async resolveTreeItem(item: vscode.TreeItem, node: Node, token: vscode.CancellationToken): Promise<vscode.TreeItem> {
+    if (node.kind !== 'docker' || item.tooltip) return item;
+    const c = node.c;
+    try {
+      const out = await runCli(execArgs(node.inst.name, node.inst.project, ['docker', 'inspect', c.id]));
+      if (token.isCancellationRequested) return item;
+      const m = new vscode.MarkdownString(dockerHoverMarkdown(out, node.inst.ipv4[0]));
+      m.supportHtml = false;
+      item.tooltip = m;
+    } catch (e) {
+      this.log.appendLine(`docker inspect ${c.id} in ${dockerKey(node.inst)} failed: ${(e as Error).message}`);
+      item.tooltip = `${c.name}\n${c.image}\n${c.status}`;
+    }
+    return item;
+  }
+
   getTreeItem(node: Node): vscode.TreeItem {
     const C = vscode.TreeItemCollapsibleState;
     switch (node.kind) {
@@ -200,8 +224,10 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
       }
       case 'project': {
         const t = new vscode.TreeItem(node.project, C.Expanded);
-        t.id = `project:${node.project}`;
-        t.iconPath = new vscode.ThemeIcon('server-environment');
+        t.id = `${node.by}:${node.project}`;
+        t.description = node.by === 'project' ? 'LXD project' : undefined;
+        t.tooltip = `${node.by === 'project' ? 'LXD project' : 'Stack'} ${node.project} · ${node.children.length} machine${node.children.length === 1 ? '' : 's'}`;
+        t.iconPath = new vscode.ThemeIcon(node.by === 'project' ? 'server-environment' : 'layers');
         t.contextValue = 'seedpod.project';
         return t;
       }
@@ -210,7 +236,7 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         const t = new vscode.TreeItem(i.name, C.Collapsed);
         t.id = `instance:${dockerKey(i)}`;
         t.description = instanceDescription(i, new Date());
-        t.tooltip = `${i.name} (${i.type}, project ${i.project})\n${t.description}`;
+        t.tooltip = new vscode.MarkdownString(instanceHoverMarkdown(i, new Date()));
         const state = instanceState(i.status);
         t.contextValue = `seedpod.instance.${state}`;
         t.iconPath =
@@ -226,6 +252,10 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         t.id = `compose:${dockerKey(node.inst)}:${node.project}`;
         t.iconPath = new vscode.ThemeIcon('type-hierarchy');
         t.contextValue = 'seedpod.compose';
+        t.tooltip = new vscode.MarkdownString(
+          [`### ${mdEscape(node.project)}`, '', `Compose project · ${node.containers.length} containers`, '',
+            ...node.containers.map((c) => `- ${c.state === 'running' ? '▶' : '■'} ${mdEscape(c.composeService ?? c.name)} · ${mdEscape(c.status)}`)].join('\n'),
+        );
         return t;
       }
       case 'docker': {
@@ -233,7 +263,6 @@ export class ContainersProvider implements vscode.TreeDataProvider<Node> {
         const t = new vscode.TreeItem(c.image, C.Collapsed);
         t.id = `docker:${dockerKey(node.inst)}:${c.id}`;
         t.description = `${c.name} · ${c.status}`;
-        t.tooltip = `${c.name}\n${c.image}\n${c.status}`;
         const running = c.state === 'running';
         t.contextValue = running ? 'seedpod.docker.running' : 'seedpod.docker.stopped';
         t.iconPath = running ? new vscode.ThemeIcon('debug-start', green) : new vscode.ThemeIcon('debug-stop', red);

@@ -10,6 +10,9 @@ export interface LxcInstance {
   lastUsedAt?: Date;
   createdAt: Date;
   snapshots: LxcSnapshot[];
+  devices: Record<string, Record<string, string>>;
+  limits: { cpu?: string; memory?: string };
+  stack: string;
 }
 
 export interface LxcImage { fingerprint: string; alias?: string; description: string; size: number; type: string }
@@ -48,6 +51,22 @@ function osOf(cfg: Record<string, string> | undefined): string | undefined {
   return ver ? `${os.toLowerCase()} ${ver}` : os.toLowerCase();
 }
 
+/**
+ * Stack a machine belongs to, from the strongest signal it carries: the `user.seedbed.project` key seedbed sets, a
+ * `user.<stack>.ip` key, a `<stack>-<role>` profile, then a `<stack>-…` name. Anything else is `other`.
+ */
+export function stackOf(name: string, config: Record<string, string> | undefined, profiles: string[] | undefined): string {
+  const tagged = config?.['user.seedbed.project'];
+  if (tagged) return tagged;
+  for (const k of Object.keys(config ?? {}).sort()) {
+    const m = /^user\.([^.]+)\.ip$/.exec(k);
+    if (m) return m[1];
+  }
+  const prof = (profiles ?? []).find((p) => p !== 'default' && p.includes('-'));
+  if (prof) return prof.slice(0, prof.indexOf('-'));
+  return name.includes('-') ? name.slice(0, name.indexOf('-')) : 'other';
+}
+
 export function parseInstances(json: string): LxcInstance[] {
   const arr: any[] = JSON.parse(json) ?? [];
   return arr.map((c) => ({
@@ -60,6 +79,9 @@ export function parseInstances(json: string): LxcInstance[] {
     lastUsedAt: date(c.last_used_at),
     createdAt: date(c.created_at) ?? new Date(0),
     snapshots: (c.snapshots ?? []).map((s: any) => ({ name: s.name, createdAt: date(s.created_at) ?? new Date(0) })),
+    devices: c.expanded_devices ?? {},
+    limits: { cpu: c.expanded_config?.['limits.cpu'], memory: c.expanded_config?.['limits.memory'] },
+    stack: stackOf(c.name, c.config, c.profiles),
   }));
 }
 

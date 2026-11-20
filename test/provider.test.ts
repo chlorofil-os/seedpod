@@ -146,3 +146,25 @@ test('Minor1 re-graded: seedpod-inspect documents refuse non-read-only calls', a
   assert.ok(calls().some((c) => c.startsWith('info')));
   assert.match(txt, /refused/);
 });
+
+test('hovering a docker container resolves its tooltip from docker inspect; a failure falls back to plain text', async () => {
+  put('docker.out', fx('docker-ps.jsonl'));
+  const p = new ContainersProvider(log);
+  const t = await tryNode(p);
+  const kids = (await p.getChildren(t)) as any[];
+  const compose = kids.find((n) => n.kind === 'compose');
+  const node = { kind: 'docker', inst: t.inst, c: compose.containers[0] } as Node;
+  const token = { isCancellationRequested: false } as any;
+
+  const item = p.getTreeItem(node);
+  assert.equal(item.tooltip, undefined);
+  put('exec.out', fx('docker-inspect.json')); put('exec.code', '0');
+  await p.resolveTreeItem(item, node, token);
+  assert.match((item.tooltip as any).value, /^### durango/);
+  assert.ok(calls().some((c) => c.endsWith(`-- docker inspect ${compose.containers[0].id}`)));
+
+  const again = p.getTreeItem(node);
+  put('exec.out', 'boom'); put('exec.code', '1');
+  await p.resolveTreeItem(again, node, token);
+  assert.equal(again.tooltip, `${compose.containers[0].name}\n${compose.containers[0].image}\n${compose.containers[0].status}`);
+});

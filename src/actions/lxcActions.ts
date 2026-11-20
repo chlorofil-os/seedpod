@@ -155,6 +155,9 @@ export function registerLxcActions(provider: ContainersProvider): vscode.Disposa
       if (s !== undefined) provider.setFilter(s);
     }),
     vscode.commands.registerCommand('seedpod.clearFilter', () => provider.setFilter('')),
-    vscode.commands.registerCommand('seedpod.groupBy', () => provider.toggleGroupBy()),
+    vscode.commands.registerCommand('seedpod.groupBy', () => {
+      const by = provider.toggleGroupBy();
+      vscode.window.setStatusBarMessage(`Seedpod: group by ${by === 'stack' ? 'stack' : by === 'project' ? 'LXD project' : 'nothing'}`, 3000);
+    }),
   ];
 }

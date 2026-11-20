@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5
+
+- Hovers like the Docker extension's. A Docker container shows its name and short ID, image, ports, volumes and
+  networks from `docker inspect`, run when hovered. Published ports link to `http://<machine IP>:<port>`; ports bound
+  to loopback inside the machine stay plain text. A machine shows its status, proxy ports, disks, NICs, limits and
+  snapshots from the `lxc list` data already loaded. A compose group lists its services and their state.
+- Grouping by stack: crmleaf, chlorofil and so on, from the `user.seedbed.project` key, a `user.<stack>.ip` key, a
+  `<stack>-*` profile, then the name prefix. The toolbar button cycles stack, LXD project and no grouping, and
+  `seedpod.groupBy` sets the default (`stack`).
+
 ## 0.1.4
 
 - "Open in Remote-SSH Window" can set up VS Code on the machine first. `seedpod.remoteSsh.machineSettings` is merged into the

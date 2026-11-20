@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
-import { parseDockerPs, groupByCompose, isNoDockerError } from '../src/model/docker';
+import { parseDockerPs, groupByCompose, isNoDockerError, dockerHoverMarkdown } from '../src/model/docker';
 
 const fx = (f: string) => readFileSync(path.join(__dirname, '..', '..', 'test', 'fixtures', f), 'utf8');
 
@@ -44,4 +44,23 @@ test('isNoDockerError', () => {
   assert.equal(isNoDockerError({ code: 1, stderr: 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock' }), true);
   assert.equal(isNoDockerError({ code: 1, stderr: 'exec: "docker": executable file not found in $PATH' }), true);
   assert.equal(isNoDockerError({ code: 1, stderr: 'permission denied' }), false);
+});
+
+test('hover markdown: title, image, deduped ports linked to the machine, volumes, networks', () => {
+  const m = dockerHoverMarkdown(fx('docker-inspect.json'), '10.0.3.7');
+  assert.match(m, /^### durango\\-postgres\\-postgres\\-1 \(0da2147821f2\)/);
+  assert.match(m, /#### Image\n\npostgres:16\\\.4 \(6b14e73a48cf\)/);
+  assert.equal(m.match(/\(http:\/\/10\.0\.3\.7:5432\)/g)?.length, 1);
+  assert.match(m, /- 127\\\.0\\\.0\\\.1:9187 ➔ 9187 tcp/);
+  assert.doesNotMatch(m, /8080/);
+  assert.match(m, /- durango\\-postgres\\_pgdata ➔ \/var\/lib\/postgresql\/data \(Named volume, RW\)/);
+  assert.match(m, /- \/srv\/init ➔ \/docker\\-entrypoint\\-initdb\\\.d \(Bind mount, RO\)/);
+  assert.match(m, /#### Networks\n\n- bridge\n- durango\\-postgres\\_default$/);
+});
+
+test('hover markdown: no machine IP leaves published ports unlinked; empty sections are omitted', () => {
+  const m = dockerHoverMarkdown(fx('docker-inspect.json'));
+  assert.match(m, /- 5432 ➔ 5432 tcp/);
+  const bare = dockerHoverMarkdown(JSON.stringify([{ Id: 'abc', Name: '/x', Config: { Image: 'busybox' } }]));
+  assert.doesNotMatch(bare, /Ports|Volumes|Networks/);
 });

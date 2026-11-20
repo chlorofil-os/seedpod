@@ -1,3 +1,5 @@
+import { mdEscape as md } from './format';
+
 export interface DockerContainer {
   id: string;
   name: string;
@@ -72,4 +74,54 @@ export function classifyDockerError(e: { code?: number | string; stderr?: string
 
 export function isNoDockerError(e: { code?: number | string; stderr?: string }): boolean {
   return classifyDockerError(e) !== 'error';
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const MOUNT_KIND: Record<string, string> = { volume: 'Named volume', bind: 'Bind mount', tmpfs: 'tmpfs', npipe: 'Named pipe' };
+
+/**
+ * Markdown hover for one container from `docker inspect <id>` output: name and short ID, then Image, Ports, Volumes,
+ * Networks. Published ports link to `http://<machineIp>:<port>`; a port bound to loopback inside the machine is not
+ * reachable from the host, so it stays plain text.
+ */
+export function dockerHoverMarkdown(inspectJson: string, machineIp?: string): string {
+  const arr: any[] = JSON.parse(inspectJson);
+  const c = Array.isArray(arr) ? arr[0] : undefined;
+  if (!c) throw new Error('docker inspect returned no container');
+  const name = String(c.Name ?? '').replace(/^\//, '');
+  const id = String(c.Id ?? '').slice(0, 12);
+  const imageId = String(c.Image ?? '').replace(/^sha256:/, '').slice(0, 12);
+  const out: string[] = [`### ${md(name)} (${md(id)})`, '', '#### Image', '', `${md(String(c.Config?.Image ?? ''))}${imageId ? ` (${imageId})` : ''}`];
+
+  const ports: string[] = [];
+  const seen = new Set<string>();
+  for (const [key, binds] of Object.entries<any>(c.NetworkSettings?.Ports ?? {})) {
+    const [cport, proto = 'tcp'] = key.split('/');
+    if (!Array.isArray(binds) || binds.length === 0) continue;
+    for (const b of binds) {
+      const hostIp = String(b.HostIp ?? '');
+      const hostPort = String(b.HostPort ?? '');
+      const loopback = hostIp.startsWith('127.') || hostIp === '::1';
+      const dedupe = `${loopback ? hostIp : '*'}:${hostPort}/${cport}/${proto}`;
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      const target = !hostIp || hostIp === '0.0.0.0' || hostIp === '::' ? machineIp : loopback ? undefined : hostIp;
+      const shown = loopback ? `${hostIp}:${hostPort}` : hostPort;
+      const link = target ? `[${md(shown)}](http://${target.includes(':') ? `[${target}]` : target}:${hostPort})` : md(shown);
+      ports.push(`- ${link} ➔ ${md(cport)} ${md(proto)}`);
+    }
+  }
+  if (ports.length) out.push('', '#### Ports', '', ...ports);
+
+  const mounts = (c.Mounts ?? []).map((m: any) => {
+    const src = m.Type === 'volume' ? m.Name : m.Source;
+    const kind = MOUNT_KIND[m.Type] ?? String(m.Type ?? '');
+    return `- ${md(String(src ?? ''))} ➔ ${md(String(m.Destination ?? ''))} (${md(kind)}, ${m.RW ? 'RW' : 'RO'})`;
+  });
+  if (mounts.length) out.push('', '#### Volumes', '', ...mounts);
+
+  const nets = Object.keys(c.NetworkSettings?.Networks ?? {}).sort().map((n) => `- ${md(n)}`);
+  if (nets.length) out.push('', '#### Networks', '', ...nets);
+  return out.join('\n');
 }

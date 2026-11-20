@@ -1,0 +1,21 @@
+[
+  {
+    "Id": "0da2147821f2c0ffee00112233445566778899aabbccddeeff00112233445566",
+    "Name": "/durango-postgres-postgres-1",
+    "Image": "sha256:6b14e73a48cf00112233445566778899aabbccddeeff0011223344556677",
+    "State": { "Status": "running" },
+    "Config": { "Image": "postgres:16.4" },
+    "Mounts": [
+      { "Type": "volume", "Name": "durango-postgres_pgdata", "Source": "/var/lib/docker/volumes/durango-postgres_pgdata/_data", "Destination": "/var/lib/postgresql/data", "RW": true },
+      { "Type": "bind", "Source": "/srv/init", "Destination": "/docker-entrypoint-initdb.d", "RW": false }
+    ],
+    "NetworkSettings": {
+      "Ports": {
+        "5432/tcp": [ { "HostIp": "0.0.0.0", "HostPort": "5432" }, { "HostIp": "::", "HostPort": "5432" } ],
+        "9187/tcp": [ { "HostIp": "127.0.0.1", "HostPort": "9187" } ],
+        "8080/tcp": null
+      },
+      "Networks": { "durango-postgres_default": {}, "bridge": {} }
+    }
+  }
+]

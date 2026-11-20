@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { parseInstances, parseImages, parseNetworks, parsePools, parseVolumes } from '../src/model/lxc';
-import { formatUptime, instanceDescription } from '../src/model/format';
+import { formatUptime, instanceDescription, instanceHoverMarkdown } from '../src/model/format';
 
 const fx = (f: string) => readFileSync(path.join(__dirname, '..', '..', 'test', 'fixtures', f), 'utf8');
 
@@ -72,4 +72,19 @@ test('pools and images', () => {
   assert.equal(img.alias, undefined);
   assert.equal(img.description, 'ubuntu 24.04 LTS amd64 (release) (20261017)');
   assert.equal(img.type, 'container');
+});
+
+test('machine hover: status, proxy ports linked on the host, disks, nics, limits, snapshots', () => {
+  const [beta] = parseInstances(fx('list.json')).filter((i) => i.name === 'beta');
+  beta.devices.web = { type: 'proxy', listen: 'tcp:0.0.0.0:8080', connect: 'tcp:127.0.0.1:80' };
+  beta.devices.src = { type: 'disk', source: '/home/u/src', path: '/srv/src', readonly: 'true' };
+  beta.limits = { cpu: '4', memory: '8GiB' };
+  const m = instanceHoverMarkdown(beta, new Date());
+  assert.match(m, /^### beta \(container\)/);
+  assert.match(m, /#### Ports\n\n- \[8080\]\(http:\/\/localhost:8080\) ➔ 80 tcp \(web\)/);
+  assert.match(m, /- pool tank ➔ \/\n- \/home\/u\/src ➔ \/srv\/src \(RO\)/);
+  assert.match(m, /#### Networks\n\n- eth0 · lxdbr0/);
+  assert.match(m, /#### Limits\n\nCPU 4 · memory 8GiB/);
+  const [alpha] = parseInstances(fx('list.json')).filter((i) => i.name === 'alpha');
+  assert.doesNotMatch(instanceHoverMarkdown(alpha, new Date()), /Ports|Limits/);
 });

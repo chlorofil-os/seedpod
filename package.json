@@ -2,7 +2,7 @@
   "name": "seedpod",
   "displayName": "Seedpod: LXC Explorer",
   "description": "Your LXC machines, and the Docker running inside them, in one tree. LXD + nested Docker explorer for VS Code, with an MCP server for AI clients.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -26,6 +26,21 @@
           "type": "string",
           "default": "lxc",
           "description": "Path to the lxc (LXD) or incus binary. Incus is best effort and untested."
+        },
+        "seedpod.groupBy": {
+          "type": "string",
+          "enum": [
+            "stack",
+            "project",
+            "none"
+          ],
+          "enumDescriptions": [
+            "By stack (crmleaf, chlorofil, …): the user.seedbed.project key, a user.<stack>.ip key, a <stack>-* profile, then a <stack>-* name",
+            "By LXD project",
+            "No grouping"
+          ],
+          "default": "stack",
+          "description": "How the Containers view groups machines. The toolbar button cycles through the modes for the session."
         },
         "seedpod.docker.pollInterval": {
           "type": "number",
@@ -148,7 +163,7 @@
       },
       {
         "command": "seedpod.groupBy",
-        "title": "Toggle Group by Project",
+        "title": "Cycle Grouping (Stack / LXD Project / None)",
         "category": "Seedpod",
         "icon": "$(group-by-ref-type)"
       },

@@ -5,7 +5,7 @@ export type DockerState = DockerContainer[] | 'none' | undefined;
 
 export type Node =
   | { kind: 'error'; message: string }
-  | { kind: 'project'; project: string; children: Node[] }
+  | { kind: 'project'; project: string; by: 'stack' | 'project'; children: Node[] }
   | { kind: 'instance'; inst: LxcInstance }
   | { kind: 'compose'; inst: LxcInstance; project: string; containers: DockerContainer[] }
   | { kind: 'docker'; inst: LxcInstance; c: DockerContainer }
@@ -13,8 +13,10 @@ export type Node =
   | { kind: 'snapshot'; inst: LxcInstance; name: string; createdAt: Date }
   | { kind: 'prop'; label: string; value: string };
 
+export type GroupBy = 'stack' | 'project' | 'none';
+
 export interface TreeOpts {
-  groupByProject: boolean;
+  groupBy: GroupBy;
   filter: string;
   docker: Map<string, DockerContainer[] | 'none'>;
 }
@@ -32,16 +34,18 @@ export function buildRoots(insts: LxcInstance[], opts: TreeOpts): Node[] {
   const visible = insts
     .filter((i) => matchesFilter(i, opts.docker.get(dockerKey(i)), opts.filter))
     .sort((a, b) => a.name.localeCompare(b.name));
-  if (!opts.groupByProject) return visible.map((inst) => ({ kind: 'instance', inst }));
-  const byProject = new Map<string, Node[]>();
+  const by = opts.groupBy;
+  if (by === 'none') return visible.map((inst) => ({ kind: 'instance', inst }));
+  const groups = new Map<string, Node[]>();
   for (const inst of visible) {
-    const list = byProject.get(inst.project) ?? [];
+    const key = by === 'stack' ? inst.stack : inst.project;
+    const list = groups.get(key) ?? [];
     list.push({ kind: 'instance', inst });
-    byProject.set(inst.project, list);
+    groups.set(key, list);
   }
-  return [...byProject.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([project, children]) => ({ kind: 'project', project, children }));
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === 'other' ? 1 : b === 'other' ? -1 : a.localeCompare(b)))
+    .map(([project, children]) => ({ kind: 'project', project, by, children }));
 }
 
 export function instanceChildren(inst: LxcInstance, docker: DockerState): Node[] {
