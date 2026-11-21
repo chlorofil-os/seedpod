@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Docs: Incus 6.0 tested for the tree and the read tools (`list_machines`, `machine_info`, `machine_log`, `list_docker`,
+  `list_resources`) with `seedpod.cliPath` / `SEEDPOD_CLI` set to `incus`. Machine actions and live refresh are not yet
+  tested on Incus.
+
 ## 0.1.8
 
 - Dev dependencies: `zod` 3 → 4 (GHSA-mrhx-c7xc-m3w5), `esbuild` 0.24 → 0.28 (GHSA-67mh-4wv8-2f99), `undici` pin
