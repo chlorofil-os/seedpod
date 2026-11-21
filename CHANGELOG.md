@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Dev dependencies: `zod` 3 → 4 (GHSA-mrhx-c7xc-m3w5), `esbuild` 0.24 → 0.28 (GHSA-67mh-4wv8-2f99), `undici` pin
+  6.21.3 → 6.29.1. `@vscode/vsce` stays on 2.x for Node 18; its `markdown-it`/`linkify-it` advisories only touch packaging
+  of this repo's own README.
+
 ## 0.1.7
 
 - MCP: every tool now sets all four annotation hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
