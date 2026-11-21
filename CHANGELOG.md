@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dev dependencies: `markdown-it` overridden to 14.3.3 under `@vscode/vsce` 2 (clears its `markdown-it` and `linkify-it`
+  advisories while vsce stays on 2.x for Node 18).
 - Docs: Incus 6.0 tested for the tree and the read tools (`list_machines`, `machine_info`, `machine_log`, `list_docker`,
   `list_resources`) with `seedpod.cliPath` / `SEEDPOD_CLI` set to `incus`. Machine actions and live refresh are not yet
   tested on Incus.
