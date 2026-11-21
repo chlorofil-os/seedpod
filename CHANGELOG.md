@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7
+
+- MCP: every tool now sets all four annotation hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+  `openWorldHint`) instead of leaving some to the MCP defaults. Two values changed: `machine_action`, `docker_action`
+  and `compose_action` are no longer marked idempotent, since all three offer restart, and `exec` is now marked
+  open-world, since it runs any command as root.
+
 ## 0.1.6
 
 - Fix: hovers closed as soon as the mouse left the tree row, so their links could not be clicked. Every hover now ends
