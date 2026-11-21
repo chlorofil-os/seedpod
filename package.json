@@ -629,7 +629,8 @@
     "zod": "^4.6.7"
   },
   "overrides": {
-    "undici": "6.29.1"
+    "undici": "6.29.1",
+    "markdown-it": "^14.3.3"
   },
   "repository": {
     "type": "git",
