@@ -104,6 +104,20 @@ test('read-only mode drops every write tool; no delete/restore tools exist at al
   for (const t of tools()) assert.equal(t.annotations.readOnlyHint, !t.write, t.name);
 });
 
+test('every tool sets all four annotation hints explicitly, matching what it does', () => {
+  const ro = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+  const lifecycle = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
+  const expected: Record<string, object> = {
+    list_machines: ro, machine_info: ro, machine_log: ro, list_docker: ro, docker_logs: ro, docker_inspect: ro, list_resources: ro,
+    create_snapshot: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    machine_action: lifecycle, docker_action: lifecycle, compose_action: lifecycle,
+    exec: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  };
+  const all = tools();
+  assert.deepEqual(all.map((t) => t.name).sort(), Object.keys(expected).sort());
+  for (const t of all) assert.deepEqual(t.annotations, expected[t.name], t.name);
+});
+
 test('docker_logs is bounded and non-following', async () => {
   put('exec.out', 'line\n');
   await tool(tools(), 'docker_logs').run({ machine: 'beta', container: 'shop-dev-queue' });

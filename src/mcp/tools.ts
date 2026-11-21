@@ -6,7 +6,17 @@ import { formatUptime } from '../model/format';
 import { defaultSnapshotName, validateSnapshotName } from '../model/naming';
 import { visibleNetworks } from '../model/resources';
 
-export interface ToolAnnotations { readOnlyHint: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint: boolean }
+/** All four hints are always set explicitly; the MCP defaults (destructive, non-idempotent, open-world) are wrong for most tools here. */
+export interface ToolAnnotations { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean; openWorldHint: boolean }
+
+/** Reads LXD/Docker state only. */
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+/** Adds something new (a snapshot) without touching what exists; each call adds another. */
+const ADDITIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+/** start/stop/restart: stop interrupts running work, and restart is not idempotent. */
+const LIFECYCLE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
+/** Arbitrary command as root: can change anything and reach the network. */
+const ARBITRARY: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
 
 export interface ToolDef {
   name: string;
@@ -56,7 +66,6 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     if (opts.protect.includes(i.name)) throw new Error(`${i.name} is protected (SEEDPOD_PROTECT); write tools refuse to touch it.`);
     return i;
   };
-  const ro: ToolAnnotations = { readOnlyHint: true, openWorldHint: false };
   const machineArgs = {
     machine: name('LXD instance name, as listed by list_machines'),
     project: z.string().optional().describe('LXD project; only needed when the name exists in several projects'),
@@ -64,7 +73,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
 
   const all: ToolDef[] = [
     {
-      name: 'list_machines', title: 'List LXD machines', write: false, annotations: ro,
+      name: 'list_machines', title: 'List LXD machines', write: false, annotations: READ_ONLY,
       description: 'List every LXD instance across projects with status, OS, IPv4, uptime, snapshots and whether it is protected from write tools.',
       input: {},
       run: async () => {
@@ -79,7 +88,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'machine_info', title: 'Machine config and state', write: false, annotations: ro,
+      name: 'machine_info', title: 'Machine config and state', write: false, annotations: READ_ONLY,
       description: 'Expanded configuration (YAML) and `lxc info` output for one machine.',
       input: machineArgs,
       run: async (a) => {
@@ -89,7 +98,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'machine_log', title: 'Machine log', write: false, annotations: ro,
+      name: 'machine_log', title: 'Machine log', write: false, annotations: READ_ONLY,
       description: 'The LXC log for one machine (`lxc info --show-log`).',
       input: machineArgs,
       run: async (a) => {
@@ -98,7 +107,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'list_docker', title: 'Docker containers in a machine', write: false, annotations: ro,
+      name: 'list_docker', title: 'Docker containers in a machine', write: false, annotations: READ_ONLY,
       description: 'Docker containers running inside one LXD machine, grouped by compose project. Reports "not installed" or "daemon not running" instead of failing.',
       input: machineArgs,
       run: async (a) => {
@@ -120,7 +129,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'docker_logs', title: 'Docker container logs', write: false, annotations: ro,
+      name: 'docker_logs', title: 'Docker container logs', write: false, annotations: READ_ONLY,
       description: 'Recent logs of a Docker container inside a machine (not followed).',
       input: { ...machineArgs, container: name('Container name or ID'), tail: z.number().int().min(1).max(5000).optional().describe('Lines from the end (default 200)'), since: z.string().optional().describe('Docker --since value, e.g. "10m" or an RFC3339 time') },
       run: async (a) => {
@@ -133,7 +142,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'docker_inspect', title: 'Inspect Docker container', write: false, annotations: ro,
+      name: 'docker_inspect', title: 'Inspect Docker container', write: false, annotations: READ_ONLY,
       description: '`docker inspect` for a container inside a machine.',
       input: { ...machineArgs, container: name('Container name or ID') },
       run: async (a) => {
@@ -142,7 +151,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
       },
     },
     {
-      name: 'list_resources', title: 'Images, networks and storage', write: false, annotations: ro,
+      name: 'list_resources', title: 'Images, networks and storage', write: false, annotations: READ_ONLY,
       description: 'LXD images, managed networks and storage pools of the current project.',
       input: {},
       run: async () => ({
@@ -153,7 +162,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     },
     {
       name: 'machine_action', title: 'Start/stop a machine', write: true,
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: LIFECYCLE,
       description: 'Start, stop, restart, freeze or unfreeze an LXD machine. Stop waits up to 100s for a clean shutdown and never forces.',
       input: { ...machineArgs, action: z.enum(['start', 'stop', 'restart', 'freeze', 'unfreeze']) },
       run: async (a) => {
@@ -167,7 +176,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     },
     {
       name: 'create_snapshot', title: 'Snapshot a machine', write: true,
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      annotations: ADDITIVE,
       description: 'Create a snapshot of a machine. On a dir pool this copies the whole filesystem and can take minutes; ' +
         'if the call times out, check list_machines before retrying. A second snapshot of the same machine is refused while one runs. ' +
         'There is deliberately no restore or delete tool.',
@@ -190,7 +199,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     },
     {
       name: 'docker_action', title: 'Start/stop a Docker container', write: true,
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: LIFECYCLE,
       description: 'Start, stop or restart a Docker container inside a machine. Removing containers is not offered.',
       input: { ...machineArgs, container: name('Container name or ID'), action: z.enum(['start', 'stop', 'restart']) },
       run: async (a) => {
@@ -203,7 +212,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     },
     {
       name: 'compose_action', title: 'Start/stop a compose project', write: true,
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: LIFECYCLE,
       description: 'Start, stop or restart every container of a docker compose project inside a machine.',
       input: {
         machine: machineArgs.machine,
@@ -221,7 +230,7 @@ export function createTools(opts: ToolOptions): ToolDef[] {
     },
     {
       name: 'exec', title: 'Run a command in a machine', write: true,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: ARBITRARY,
       description: 'Run a command inside a machine as root and return exit code, stdout and stderr. `command` is an argv array, not a shell string; use ["sh","-c","..."] for shell syntax.',
       input: { ...machineArgs, command: z.array(z.string()).min(1).describe('argv, e.g. ["docker","compose","ps"]'), timeout_seconds: z.number().int().min(1).max(600).optional() },
       run: async (a) => {
