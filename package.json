@@ -2,7 +2,7 @@
   "name": "seedpod",
   "displayName": "Seedpod: LXC Explorer",
   "description": "Your LXC machines, and the Docker running inside them, in one tree. LXD + nested Docker explorer for VS Code, with an MCP server for AI clients.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "local",
   "license": "MIT",
   "engines": {
