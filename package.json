@@ -25,7 +25,7 @@
         "seedpod.cliPath": {
           "type": "string",
           "default": "lxc",
-          "description": "Path to the lxc (LXD) or incus binary. Incus is best effort and untested."
+          "description": "Path to the lxc (LXD) or incus binary. Incus 6.0: tree and read tools tested; machine actions not yet."
         },
         "seedpod.groupBy": {
           "type": "string",

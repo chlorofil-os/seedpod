@@ -46,7 +46,7 @@ Every destructive action asks first, in a modal that names the target.
 
 | Setting | Default | |
 |---|---|---|
-| `seedpod.cliPath` | `lxc` | Path to the `lxc` binary. Setting it to `incus` is best effort and **untested**: snapshot verbs are mapped, other output is assumed compatible with LXD 5.21. |
+| `seedpod.cliPath` | `lxc` | Path to the `lxc` or `incus` binary. Incus 6.0 works for the tree and the read tools (list, info, log, resources); machine actions and live refresh via `incus monitor` are not yet tested there. Snapshot verbs are mapped. |
 | `seedpod.docker.pollInterval` | `10` | Seconds between Docker refreshes for expanded machines. `0` turns polling off. |
 | `seedpod.networks.showUnmanaged` | `false` | Also list host bridges LXD does not manage (docker0, br-*). |
 | `seedpod.remoteSsh.user` | `ubuntu` | User "Open in Remote-SSH Window" connects as. |
@@ -100,7 +100,7 @@ There are deliberately **no delete, restore or remove tools**.
 
 | Env var | |
 |---|---|
-| `SEEDPOD_CLI` | path to `lxc` (default `lxc`) |
+| `SEEDPOD_CLI` | path to `lxc` or `incus` (default `lxc`) |
 | `SEEDPOD_READONLY=1` | register the read-only tools only |
 | `SEEDPOD_PROTECT=a,b` | machines no write tool (including `exec`) may touch |
 
